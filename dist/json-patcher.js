@@ -27,18 +27,28 @@ var BaseProxyHandler = (function () {
     };
     BaseProxyHandler.prototype.set = function (target, key, value) {
         if (this.valueHolder[key]) {
-            this.markChanges(key, value, this.getReplaceOrRemove(value));
+            this.markChanges(key, this.getReplaceOrRemove(value), value);
             this.valueHolder[key] = value;
         }
         else {
             this.registerProperty(key, value);
-            this.markChanges(key, value, 'add');
+            this.markChanges(key, 'add', value);
         }
         target[key] = value;
         return true;
     };
-    BaseProxyHandler.prototype.markChanges = function (key, value, operation) {
+    BaseProxyHandler.prototype.deleteProperty = function (target, key) {
+        delete target[key];
+        delete this.valueHolder[key];
+        this.markChanges(key, 'remove');
+        return true;
+    };
+    BaseProxyHandler.prototype.markChanges = function (key, operation, value) {
         console.log("Mark that " + key + " in now " + value + ". Operation: " + operation);
+        this.changes[key] = {
+            op: operation,
+            value: value
+        };
     };
     BaseProxyHandler.prototype.getChangeSet = function () {
         return [];
@@ -53,7 +63,7 @@ var BaseProxyHandler = (function () {
         }
     };
     BaseProxyHandler.prototype.getReplaceOrRemove = function (val) {
-        val ? 'replace' : 'remove';
+        return val ? 'replace' : 'remove';
     };
     return BaseProxyHandler;
 }());

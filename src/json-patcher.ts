@@ -20,19 +20,29 @@ class BaseProxyHandler {
 
     set(target: any, key: string, value: any) {
         if (this.valueHolder[key]) {
-            this.markChanges(key, value, this.getReplaceOrRemove(value));
+            this.markChanges(key, this.getReplaceOrRemove(value), value);
             this.valueHolder[key] = value;
 
         } else {
             this.registerProperty(key, value);
-            this.markChanges(key, value, 'add');
+            this.markChanges(key, 'add', value);
         }
         target[key] = value;
         return true;
     }
+    deleteProperty(target: any, key: string) {
+        delete target[key];
+        delete this.valueHolder[key];
+        this.markChanges(key, 'remove');
+        return true;
+    }
 
-    markChanges(key: string, value: any, operation) {
+    markChanges(key: string, operation: string, value?: any) {
         console.log(`Mark that ${key} in now ${value}. Operation: ${operation}`);
+        this.changes[key] = {
+            op: operation,
+            value: value
+        }
     }
 
     getChangeSet() {
@@ -49,7 +59,7 @@ class BaseProxyHandler {
     }
 
     getReplaceOrRemove(val) {
-        val ? 'replace' : 'remove';
+        return val ? 'replace' : 'remove';
     }
 }
 
