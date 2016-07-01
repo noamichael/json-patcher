@@ -1,13 +1,33 @@
 const Proxy = window['Proxy'];
+const privateChangesKey = '___$$$changes';
+class PatchOperation {
+    static REPLACE = 'replace'
+    static ADD = 'add'
+    static REMOVE = 'remove'
+    static MOVE = 'move'
+    static COPY = 'copy'
+}
 
 export class JsonPatcher {
     static watch<T>(obj: T): T {
         return createUnknownProxy(obj);
     }
+    static getChanges(obj: any) {
+        let internalChanges = obj[privateChangesKey];
+        let exposedChanges = [];
+        internalChanges.forEach(change => {
+            exposedChanges.push({
+                op: change.op,
+                path: change.pathStack.join('/'),
+                value: change.value
+            });
+        });
+        return exposedChanges;
+    }
 }
 
 class BaseProxyHandler {
-    protected childProxies = []
+    protected childProxies = {}
     protected valueHolder = {}
     protected changes = {}
 
@@ -15,6 +35,9 @@ class BaseProxyHandler {
         return typeof obj !== 'function' && typeof obj !== 'object';
     }
     get(target: any, key: string) {
+        if (key === privateChangesKey) {
+            return this.getPrivateChangeSet();
+        }
         return this.valueHolder[key] || target[key];
     }
 
@@ -33,6 +56,7 @@ class BaseProxyHandler {
     deleteProperty(target: any, key: string) {
         delete target[key];
         delete this.valueHolder[key];
+        delete this.childProxies[key];
         this.markChanges(key, 'remove');
         return true;
     }
@@ -41,18 +65,37 @@ class BaseProxyHandler {
         console.log(`Mark that ${key} in now ${value}. Operation: ${operation}`);
         this.changes[key] = {
             op: operation,
+            pathStack: ['', key],
             value: value
         }
     }
 
-    getChangeSet() {
-        return [];
+
+    getPrivateChangeSet() {
+        let changeSet = [];
+        for (let key in this.changes) {
+            let change = this.changes[key];
+            changeSet.push({
+                op: change.op,
+                pathStack: change.pathStack.slice(),
+                value: change.value
+            });
+        }
+        for (let key in this.childProxies) {
+            let childChanges = this.childProxies[key][privateChangesKey];
+            childChanges.forEach(change => {
+                change.pathStack.unshift(key);
+            });
+            changeSet = changeSet.concat(childChanges);
+
+        }
+        return changeSet;
     }
 
     registerProperty(key, value) {
         if (!this.isPrimative(value)) {
             this.valueHolder[key] = createUnknownProxy(value);
-            this.childProxies.push(this.valueHolder[key]);
+            this.childProxies[key] = this.valueHolder[key];
         } else {
             this.valueHolder[key] = value;
         }
@@ -81,6 +124,12 @@ class ProxyArrayHandler extends BaseProxyHandler {
             this.registerProperty(index, child);
         });
     }
+    markChanges(key: string, operation: string, value?: any) {
+        if (key === 'length') {
+            return;
+        }
+        super.markChanges(key, operation, value);
+    }
 }
 
 function createUnknownProxy(obj) {
@@ -91,7 +140,6 @@ function createUnknownProxy(obj) {
     } else if (typeOfObject === 'object') {
         handler = new ProxyObjectHandler(obj);
     }
-    window['__handler'] = handler;
     return new Proxy(obj, handler || {});
 
 }
