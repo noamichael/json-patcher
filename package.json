@@ -1,0 +1,23 @@
+{
+  "name": "json-patcher",
+  "version": "1.0.0",
+  "description": "A utility for tracking chances made to a json object.",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/noamichael/json-patcher.git"
+  },
+  "keywords": [
+    "json",
+    "change",
+    "detector",
+    "patch",
+    "http"
+  ],
+  "author": "Michael Kucinski",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/noamichael/json-patcher/issues"
+  },
+  "homepage": "https://github.com/noamichael/json-patcher#readme"
+}
